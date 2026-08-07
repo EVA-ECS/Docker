@@ -1,25 +1,22 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  database:
-    image: postgres:18.4
-    container_name: database
-    restart: always
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: ${DB_NAME}
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80" # API Requests
+      - "8080:8080" # Dashboard
     volumes:
-      - db_data:/var/lib/postgresql
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
     networks:
-      - data-net
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
+      - public-net
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -30,7 +27,7 @@ services:
     networks:
       - data-net
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,31 +37,91 @@ services:
     container_name: rabbitmq
     restart: always
     environment:
-      RABBITMQ_DEFAULT_USER: ${RMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RMQ_PASS}
+      RABBITMQ_DEFAULT_USER: ${RMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RMQ_PASS:-secret}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - data-net
-      - public-net
     ports:
       - "15672:15672"
     healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 15s
       timeout: 10s
       retries: 5
       start_period: 20s
+  chat-gateway:
+    build:
+      context: ../chat-gateway
+      dockerfile: Dockerfile
+    container_name: chat-gateway
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RABBITMQ_HOST=rabbitmq
+      - REDIS_HOST=redis
+    labels:
+      - "traefik.enable=true"
+      # Requests with /ws (WebSockets) or /api/ticket beginnen, are routed here:
+      - "traefik.http.routers.chat-gateway.rule=PathPrefix(`/ws`, `/api/ticket`)"
+      # .NET 8 Web APIs 8080
+      - "traefik.http.services.chat-gateway.loadbalancer.server.port=8080"
+    networks:
+      - public-net # Talk to Traefik
+      - data-net # Talsk to Redis and RabbitMQ
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
-  # chat-gateway: get from doku
+  user-service:
+    build:
+      context: ../user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    labels:
+      - "traefik.enable=true"
+      # All Requests from /api/users are routed to this Service
+      - "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`)"
+      - "traefik.http.services.user-service.loadbalancer.server.port=8080"
+    networks:
+      - public-net
 
-  # auth-service: get from doku
+  # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
+  storage-worker:
+    build:
+      context: ../storage-service
+      dockerfile: Dockerfile
+    container_name: storage-worker
+    restart: unless-stopped
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - RABBITMQ_HOST=rabbitmq
+    networks:
+      - data-net # Talks to RabbitMQ
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
-  # user-directory: get from doku
-
-  # storage-worker: get from doku
-
-   # delivery-worker: get from doku
+  delivery-worker:
+    build:
+      context: ../delivery-service
+      dockerfile: Dockerfile
+    container_name: delivery-worker
+    restart: unless-stopped
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - RABBITMQ_HOST=rabbitmq
+    networks:
+      - data-net # Talks to RabbitMQ
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
 networks:
   public-net:
@@ -77,6 +134,5 @@ networks:
     internal: true
 
 volumes:
-  db_data:
   redis_data:
   rabbitmq_data:
