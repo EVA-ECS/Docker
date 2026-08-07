@@ -58,6 +58,7 @@ services:
     container_name: chat-gateway
     restart: unless-stopped
     environment:
+      - RabbitMQ__Host=rabbitmq
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
       - REDIS_HOST=redis
