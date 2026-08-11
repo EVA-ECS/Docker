@@ -61,6 +61,8 @@ services:
         - GITHUB_TOKEN=${GITHUB_TOKEN}
     container_name: gateway
     restart: unless-stopped
+    ports:
+    - "8082:8080"
     environment:
       - RabbitMQ__Host=rabbitmq
       - ASPNETCORE_ENVIRONMENT=Development
