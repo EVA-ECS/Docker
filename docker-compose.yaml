@@ -62,6 +62,7 @@ services:
     container_name: gateway
     restart: unless-stopped
     environment:
+      - JWT_KEY=${JWT_KEY}
       - RabbitMQ__Host=rabbitmq
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
