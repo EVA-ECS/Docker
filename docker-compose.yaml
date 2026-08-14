@@ -51,77 +51,88 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
+
   chat-gateway:
     build:
-      context: ../chat-gateway
+      context: ../Gateway
       dockerfile: Dockerfile
-    container_name: chat-gateway
+      args:
+        - GITHUB_USER=${GITHUB_USER}
+        - GITHUB_TOKEN=${GITHUB_TOKEN}
+    container_name: gateway
     restart: unless-stopped
     environment:
+      - JWT_KEY=${JWT_KEY}
+      - RabbitMQ__Host=rabbitmq
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
       - REDIS_HOST=redis
     labels:
       - "traefik.enable=true"
-      # Requests with /ws (WebSockets) or /api/ticket beginnen, are routed here:
-      - "traefik.http.routers.chat-gateway.rule=PathPrefix(`/ws`, `/api/ticket`)"
-      # .NET 8 Web APIs 8080
+      # Requests with /ws, /api/ticket, or /api/chat are routed here:
+      - "traefik.http.routers.chat-gateway.rule=PathPrefix(`/ws`, `/api/ticket`, `/api/chat`)"
       - "traefik.http.services.chat-gateway.loadbalancer.server.port=8080"
     networks:
       - public-net # Talk to Traefik
-      - data-net # Talsk to Redis and RabbitMQ
+      - data-net   # Talk to Redis and RabbitMQ
     depends_on:
       redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
-  user-service:
-    build:
-      context: ../user-service
-      dockerfile: Dockerfile
-    container_name: user-service
-    restart: unless-stopped
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-    labels:
-      - "traefik.enable=true"
+  # user-service:
+   # build:
+    #  context: ../UserService
+     # dockerfile: Dockerfile
+    #container_name: user-service
+    #restart: unless-stopped
+    #environment:
+     # - ASPNETCORE_ENVIRONMENT=Development
+    #labels:
+     # - "traefik.enable=true"
       # All Requests from /api/users are routed to this Service
-      - "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`)"
-      - "traefik.http.services.user-service.loadbalancer.server.port=8080"
-    networks:
-      - public-net
+      #- "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`)"
+      #- "traefik.http.services.user-service.loadbalancer.server.port=8080"
+    #networks:
+     # - public-net
 
   # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
-  storage-worker:
-    build:
-      context: ../storage-service
-      dockerfile: Dockerfile
-    container_name: storage-worker
-    restart: unless-stopped
-    environment:
-      - DOTNET_ENVIRONMENT=Development
-      - RABBITMQ_HOST=rabbitmq
-    networks:
-      - data-net # Talks to RabbitMQ
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
+  #storage-worker:
+   # build:
+    #  context: ../Storage-Service
+     # dockerfile: Dockerfile
+    #container_name: storage-worker
+    #restart: unless-stopped
+    #environment:
+     # - DOTNET_ENVIRONMENT=Development
+     # - RABBITMQ_HOST=rabbitmq
+    #networks:
+     # - data-net # Talks to RabbitMQ
+    #depends_on:
+     # rabbitmq:
+      #  condition: service_healthy
 
-  delivery-worker:
-    build:
-      context: ../delivery-service
-      dockerfile: Dockerfile
-    container_name: delivery-worker
-    restart: unless-stopped
-    environment:
-      - DOTNET_ENVIRONMENT=Development
-      - RABBITMQ_HOST=rabbitmq
-    networks:
-      - data-net # Talks to RabbitMQ
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
+  #delivery-worker:
+   # build:
+    #  context: ../Delivery-Service
+     # dockerfile: Dockerfile
+    #container_name: delivery-worker
+    #restart: unless-stopped
+    #environment:
+     # - DOTNET_ENVIRONMENT=Development
+     # - RABBITMQ_HOST=rabbitmq
+    #networks:
+     # - data-net # Talks to RabbitMQ
+    #depends_on:
+     # rabbitmq:
+      #  condition: service_healthy
 
 networks:
   public-net:
