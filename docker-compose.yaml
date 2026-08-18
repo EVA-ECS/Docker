@@ -1,8 +1,9 @@
 version: "3.8"
 
+
 services:
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.7.1
     container_name: traefik
     restart: unless-stopped
     command:
@@ -10,6 +11,7 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--ping=true"
     ports:
       - "80:80" # API Requests
       - "8080:8080" # Dashboard
@@ -17,6 +19,13 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     networks:
       - public-net
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -61,16 +70,22 @@ services:
         - GITHUB_TOKEN=${GITHUB_TOKEN}
     container_name: gateway
     restart: unless-stopped
+    ports:
+      - "8082:8080"
     environment:
       - JWT_KEY=${JWT_KEY}
       - RabbitMQ__Host=rabbitmq
+      - Redis__ConnectionString=redis:6379
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
       - REDIS_HOST=redis
     labels:
       - "traefik.enable=true"
-      # Requests with /ws, /api/ticket, or /api/chat are routed here:
-      - "traefik.http.routers.chat-gateway.rule=PathPrefix(`/ws`, `/api/ticket`, `/api/chat`)"
+      - "traefik.docker.network=docker_public-net"
+      # Traefik leitet alle API-, YARP- und WebSocket-Anfragen an das Gateway weiter.
+      - "traefik.http.routers.chat-gateway.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.chat-gateway.entrypoints=web"
+      - "traefik.http.routers.chat-gateway.service=chat-gateway"
       - "traefik.http.services.chat-gateway.loadbalancer.server.port=8080"
     networks:
       - public-net # Talk to Traefik
@@ -136,11 +151,13 @@ services:
 
 networks:
   public-net:
+    name: docker_public-net
     driver: bridge
   internal-net:
     driver: bridge
     internal: true
   data-net:
+    name: docker_data-net
     driver: bridge
     internal: true
 
