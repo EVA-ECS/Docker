@@ -52,6 +52,7 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - data-net
+      - rabbitmq-management-net
     ports:
       - "15672:15672"
     healthcheck:
@@ -159,6 +160,8 @@ networks:
     name: docker_data-net
     driver: bridge
     internal: true
+  rabbitmq-management-net:
+    driver: bridge
 
 volumes:
   redis_data:
