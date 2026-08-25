@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.7.1
     container_name: traefik
     restart: unless-stopped
     command:
@@ -10,6 +10,7 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--ping=true"
     ports:
       - "80:80" # API Requests
       - "8080:8080" # Dashboard
@@ -17,6 +18,13 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     networks:
       - public-net
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -43,6 +51,7 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - data-net
+      - rabbitmq-management-net
     ports:
       - "15672:15672"
     healthcheck:
@@ -61,20 +70,27 @@ services:
         - GITHUB_TOKEN=${GITHUB_TOKEN}
     container_name: gateway
     restart: unless-stopped
+    ports:
+      - "8082:8080"
     environment:
-      - JWT_KEY=${JWT_KEY}
       - RabbitMQ__Host=rabbitmq
+      - Redis__ConnectionString=redis:6379
+      - Supabase__Url=${SUPABASE_URL}
+      - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
       - REDIS_HOST=redis
     labels:
       - "traefik.enable=true"
-      # Requests with /ws, /api/ticket, or /api/chat are routed here:
-      - "traefik.http.routers.chat-gateway.rule=PathPrefix(`/ws`, `/api/ticket`, `/api/chat`)"
+      - "traefik.docker.network=docker_public-net"
+      # Traefik leitet alle API-, YARP- und WebSocket-Anfragen an das Gateway weiter.
+      - "traefik.http.routers.chat-gateway.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.chat-gateway.entrypoints=web"
+      - "traefik.http.routers.chat-gateway.service=chat-gateway"
       - "traefik.http.services.chat-gateway.loadbalancer.server.port=8080"
     networks:
       - public-net # Talk to Traefik
-      - data-net   # Talk to Redis and RabbitMQ
+      - data-net # Talk to Redis and RabbitMQ
     depends_on:
       redis:
         condition: service_healthy
@@ -88,61 +104,65 @@ services:
       start_period: 15s
 
   # user-service:
-   # build:
-    #  context: ../UserService
-     # dockerfile: Dockerfile
-    #container_name: user-service
-    #restart: unless-stopped
-    #environment:
-     # - ASPNETCORE_ENVIRONMENT=Development
-    #labels:
-     # - "traefik.enable=true"
-      # All Requests from /api/users are routed to this Service
-      #- "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`)"
-      #- "traefik.http.services.user-service.loadbalancer.server.port=8080"
-    #networks:
-     # - public-net
+  # build:
+  #  context: ../UserService
+  # dockerfile: Dockerfile
+  #container_name: user-service
+  #restart: unless-stopped
+  #environment:
+  # - ASPNETCORE_ENVIRONMENT=Development
+  #labels:
+  # - "traefik.enable=true"
+  # All Requests from /api/users are routed to this Service
+  #- "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`)"
+  #- "traefik.http.services.user-service.loadbalancer.server.port=8080"
+  #networks:
+  # - public-net
 
   # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
   #storage-worker:
-   # build:
-    #  context: ../Storage-Service
-     # dockerfile: Dockerfile
-    #container_name: storage-worker
-    #restart: unless-stopped
-    #environment:
-     # - DOTNET_ENVIRONMENT=Development
-     # - RABBITMQ_HOST=rabbitmq
-    #networks:
-     # - data-net # Talks to RabbitMQ
-    #depends_on:
-     # rabbitmq:
-      #  condition: service_healthy
+  # build:
+  #  context: ../Storage-Service
+  # dockerfile: Dockerfile
+  #container_name: storage-worker
+  #restart: unless-stopped
+  #environment:
+  # - DOTNET_ENVIRONMENT=Development
+  # - RABBITMQ_HOST=rabbitmq
+  #networks:
+  # - data-net # Talks to RabbitMQ
+  #depends_on:
+  # rabbitmq:
+  #  condition: service_healthy
 
   #delivery-worker:
-   # build:
-    #  context: ../Delivery-Service
-     # dockerfile: Dockerfile
-    #container_name: delivery-worker
-    #restart: unless-stopped
-    #environment:
-     # - DOTNET_ENVIRONMENT=Development
-     # - RABBITMQ_HOST=rabbitmq
-    #networks:
-     # - data-net # Talks to RabbitMQ
-    #depends_on:
-     # rabbitmq:
-      #  condition: service_healthy
+  # build:
+  #  context: ../Delivery-Service
+  # dockerfile: Dockerfile
+  #container_name: delivery-worker
+  #restart: unless-stopped
+  #environment:
+  # - DOTNET_ENVIRONMENT=Development
+  # - RABBITMQ_HOST=rabbitmq
+  #networks:
+  # - data-net # Talks to RabbitMQ
+  #depends_on:
+  # rabbitmq:
+  #  condition: service_healthy
 
 networks:
   public-net:
+    name: docker_public-net
     driver: bridge
   internal-net:
     driver: bridge
     internal: true
   data-net:
+    name: docker_data-net
     driver: bridge
     internal: true
+  rabbitmq-management-net:
+    driver: bridge
 
 volumes:
   redis_data:
