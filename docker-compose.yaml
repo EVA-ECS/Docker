@@ -75,6 +75,8 @@ services:
     environment:
       - RabbitMQ__Host=rabbitmq
       - Redis__ConnectionString=redis:6379
+      - Supabase__Url=${SUPABASE_URL}
+      - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
       - REDIS_HOST=redis
