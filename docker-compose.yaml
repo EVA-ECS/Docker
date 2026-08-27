@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   traefik:
     image: traefik:v3.7.1
@@ -63,18 +61,22 @@ services:
 
   chat-gateway:
     build:
-      context: ../Gateway
-      dockerfile: Dockerfile
-      args:
-        - GITHUB_USER=${GITHUB_USER}
-        - GITHUB_TOKEN=${GITHUB_TOKEN}
+      context: ..
+      dockerfile: Gateway/Dockerfile
     container_name: gateway
     restart: unless-stopped
     ports:
       - "8082:8080"
     environment:
       - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RMQ_USER:-admin}
+      - RabbitMQ__Password=${RMQ_PASS:-secret}
       - Redis__ConnectionString=redis:6379
+      - "Redis__PresenceKeyPrefix=presence:"
+      - "Redis__GatewayMappingKeyPrefix=gateway_for_user:"
+      - "Redis__DeliveryChannelPrefix=gateway:delivery:"
+      - Gateway__Id=${GATEWAY_ID:-gateway}
+      - Gateway__PresenceTtlSeconds=${GATEWAY_PRESENCE_TTL_SECONDS:-60}
       - Supabase__Url=${SUPABASE_URL}
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
@@ -145,20 +147,35 @@ services:
   # rabbitmq:
   #  condition: service_healthy
 
-  #delivery-worker:
-  # build:
-  #  context: ../Delivery-Service
-  # dockerfile: Dockerfile
-  #container_name: delivery-worker
-  #restart: unless-stopped
-  #environment:
-  # - DOTNET_ENVIRONMENT=Development
-  # - RABBITMQ_HOST=rabbitmq
-  #networks:
-  # - data-net # Talks to RabbitMQ
-  #depends_on:
-  # rabbitmq:
-  #  condition: service_healthy
+  delivery-worker:
+    build:
+      context: ..
+      dockerfile: Delivery-Service/Dockerfile
+    restart: unless-stopped
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - Delivery__WorkerCount=${DELIVERY_WORKER_COUNT:-4}
+      - Delivery__ConnectionRetryDelaySeconds=${DELIVERY_RETRY_DELAY_SECONDS:-5}
+      - Delivery__ShutdownTimeoutSeconds=${DELIVERY_SHUTDOWN_TIMEOUT_SECONDS:-30}
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=${RMQ_USER:-admin}
+      - RabbitMQ__Password=${RMQ_PASS:-secret}
+      - RabbitMQ__VirtualHost=/
+      - RabbitMQ__ExchangeName=chat_events
+      - RabbitMQ__QueueName=delivery.queue
+      - RabbitMQ__RoutingKey=msg.#
+      - Redis__ConnectionString=redis:6379
+      - "Redis__PresenceKeyPrefix=presence:"
+      - "Redis__GatewayMappingKeyPrefix=gateway_for_user:"
+      - "Redis__DeliveryChannelPrefix=gateway:delivery:"
+    networks:
+      - data-net
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 networks:
   public-net:
