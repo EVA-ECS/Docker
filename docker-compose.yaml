@@ -115,6 +115,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - Redis__ConnectionString=redis:6379
+      - "Redis__PresenceKeyPrefix=presence:"
       - Supabase__Url=${SUPABASE_URL}
       - Supabase__PublishableKey=${SUPABASE_PUBLISHABLE_KEY}
       - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
