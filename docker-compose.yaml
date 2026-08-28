@@ -76,7 +76,6 @@ services:
       - RabbitMQ__Host=rabbitmq
       - Redis__ConnectionString=redis:6379
       - Supabase__Url=${SUPABASE_URL}
-      - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
       - REDIS_HOST=redis
@@ -96,12 +95,55 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      user-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  user-service:
+    build:
+      context: ../UserService
+      dockerfile: Dockerfile
+    container_name: user-service
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Redis__ConnectionString=redis:6379
+      - Supabase__Url=${SUPABASE_URL}
+      - Supabase__PublishableKey=${SUPABASE_PUBLISHABLE_KEY}
+      - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
+    networks:
+      - public-net
+      - data-net
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
+  #storage-worker:
+  # build:
+  #  context: ../Storage-Service
+  # dockerfile: Dockerfile
+  #container_name: storage-worker
+  #restart: unless-stopped
+  #environment:
+  # - DOTNET_ENVIRONMENT=Development
+  # - RABBITMQ_HOST=rabbitmq
+  #networks:
+  # - data-net # Talks to RabbitMQ
+  #depends_on:
+  # rabbitmq:
+  #  condition: service_healthy
 
   # user-service:
   # build:
