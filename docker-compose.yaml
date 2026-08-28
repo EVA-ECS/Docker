@@ -152,6 +152,7 @@ services:
       context: ..
       dockerfile: Delivery-Service/Dockerfile
     restart: unless-stopped
+    stop_grace_period: ${DELIVERY_STOP_GRACE_PERIOD:-35s}
     environment:
       - DOTNET_ENVIRONMENT=Development
       - Delivery__WorkerCount=${DELIVERY_WORKER_COUNT:-4}
@@ -166,7 +167,6 @@ services:
       - RabbitMQ__QueueName=delivery.queue
       - RabbitMQ__RoutingKey=msg.#
       - Redis__ConnectionString=redis:6379
-      - "Redis__PresenceKeyPrefix=presence:"
       - "Redis__GatewayMappingKeyPrefix=gateway_for_user:"
       - "Redis__DeliveryChannelPrefix=gateway:delivery:"
     networks:
