@@ -129,6 +129,35 @@ services:
       retries: 3
       start_period: 15s
 
+  frontend:
+    build:
+      context: ../Frontend/chat-app
+      dockerfile: Dockerfile
+      args:
+        EXPO_PUBLIC_GATEWAY_URL: http://localhost
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    depends_on:
+      chat-gateway:
+        condition: service_healthy
+    networks:
+      - public-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "--spider",
+          "http://127.0.0.1/"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
   #storage-worker:
   # build:
