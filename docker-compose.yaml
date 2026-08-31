@@ -49,6 +49,8 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RMQ_PASS:-secret}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ../Gateway/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ../Gateway/definitions.json:/etc/rabbitmq/definitions.json:ro
     networks:
       - data-net
       - rabbitmq-management-net
@@ -129,37 +131,6 @@ services:
       retries: 3
       start_period: 15s
 
-  # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
-  #storage-worker:
-  # build:
-  #  context: ../Storage-Service
-  # dockerfile: Dockerfile
-  #container_name: storage-worker
-  #restart: unless-stopped
-  #environment:
-  # - DOTNET_ENVIRONMENT=Development
-  # - RABBITMQ_HOST=rabbitmq
-  #networks:
-  # - data-net # Talks to RabbitMQ
-  #depends_on:
-  # rabbitmq:
-  #  condition: service_healthy
-
-  # user-service:
-  # build:
-  #  context: ../UserService
-  # dockerfile: Dockerfile
-  #container_name: user-service
-  #restart: unless-stopped
-  #environment:
-  # - ASPNETCORE_ENVIRONMENT=Development
-  #labels:
-  # - "traefik.enable=true"
-  # All Requests from /api/users are routed to this Service
-  #- "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`)"
-  #- "traefik.http.services.user-service.loadbalancer.server.port=8080"
-  #networks:
-  # - public-net
 
   # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
   #storage-worker:
