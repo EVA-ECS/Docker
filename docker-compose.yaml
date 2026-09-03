@@ -61,8 +61,11 @@ services:
 
   chat-gateway:
     build:
-      context: ..
-      dockerfile: Gateway/Dockerfile
+      context: ../Gateway
+      dockerfile: Dockerfile
+      args:
+        GITHUB_USER: ${GITHUB_USER}
+        GITHUB_TOKEN: ${GITHUB_TOKEN}
     container_name: gateway
     restart: unless-stopped
     ports:
@@ -73,10 +76,8 @@ services:
       - RabbitMQ__Password=${RMQ_PASS:-secret}
       - Redis__ConnectionString=redis:6379
       - "Redis__PresenceKeyPrefix=presence:"
-      - "Redis__GatewayMappingKeyPrefix=gateway_for_user:"
-      - "Redis__DeliveryChannelPrefix=gateway:delivery:"
-      - Gateway__Id=${GATEWAY_ID:-gateway}
-      - Gateway__PresenceTtlSeconds=${GATEWAY_PRESENCE_TTL_SECONDS:-60}
+      - "Redis__SingleGatewayDeliveryChannel=gateway:delivery"
+      - Redis__PresenceTtlSeconds=${GATEWAY_PRESENCE_TTL_SECONDS:-60}
       - Supabase__Url=${SUPABASE_URL}
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
@@ -132,21 +133,30 @@ services:
       retries: 3
       start_period: 15s
 
-  # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
-  #storage-worker:
-  # build:
-  #  context: ../Storage-Service
-  # dockerfile: Dockerfile
-  #container_name: storage-worker
-  #restart: unless-stopped
-  #environment:
-  # - DOTNET_ENVIRONMENT=Development
-  # - RABBITMQ_HOST=rabbitmq
-  #networks:
-  # - data-net # Talks to RabbitMQ
-  #depends_on:
-  # rabbitmq:
-  #  condition: service_healthy
+  # No Traefik routing: workers communicate only with RabbitMQ/Redis.
+  storage-worker:
+    build:
+      context: ../Storage-Service
+      dockerfile: Dockerfile
+      args:
+        GITHUB_USER: ${GITHUB_USER}
+        GITHUB_TOKEN: ${GITHUB_TOKEN}
+    restart: unless-stopped
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - Supabase__Url=${SUPABASE_URL}
+      - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
+      - Storage__WorkerCount=${STORAGE_WORKER_COUNT:-3}
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RMQ_USER:-admin}
+      - RabbitMQ__Password=${RMQ_PASS:-secret}
+      - RabbitMQ__QueueName=storage_queue
+    networks:
+      - public-net # Outbound HTTPS access to Supabase; no ports are published.
+      - data-net
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   delivery-worker:
     build:
@@ -156,20 +166,18 @@ services:
     stop_grace_period: ${DELIVERY_STOP_GRACE_PERIOD:-35s}
     environment:
       - DOTNET_ENVIRONMENT=Development
-      - Delivery__WorkerCount=${DELIVERY_WORKER_COUNT:-4}
-      - Delivery__ConnectionRetryDelaySeconds=${DELIVERY_RETRY_DELAY_SECONDS:-5}
-      - Delivery__ShutdownTimeoutSeconds=${DELIVERY_SHUTDOWN_TIMEOUT_SECONDS:-30}
+      - Delivery__WorkerCount=${DELIVERY_WORKER_COUNT:-3}
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=${RMQ_USER:-admin}
       - RabbitMQ__Password=${RMQ_PASS:-secret}
       - RabbitMQ__VirtualHost=/
-      - RabbitMQ__ExchangeName=chat_events
-      - RabbitMQ__QueueName=delivery.queue
-      - RabbitMQ__RoutingKey=msg.#
+      - RabbitMQ__QueueName=delivery_queue
       - Redis__ConnectionString=redis:6379
+      - "Redis__PresenceKeyPrefix=presence:"
       - "Redis__GatewayMappingKeyPrefix=gateway_for_user:"
       - "Redis__DeliveryChannelPrefix=gateway:delivery:"
+      - "Redis__SingleGatewayDeliveryChannel=gateway:delivery"
     networks:
       - data-net
     depends_on:
