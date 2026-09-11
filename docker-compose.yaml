@@ -49,6 +49,8 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RMQ_PASS:-secret}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ../Gateway/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ../Gateway/definitions.json:/etc/rabbitmq/definitions.json:ro
     networks:
       - data-net
       - rabbitmq-management-net
@@ -128,6 +130,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
 
   # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
   #storage-worker:
