@@ -5,8 +5,8 @@ Die ergänzende private Chat-Demo wird ausdrücklich über `Start-Demo.ps1`
 und `docker-compose.integration.yaml` gestartet. So werden die bestehenden
 Container, Ports und Datenvolumes nicht ersetzt.
 
-**Vor dem Start:** [PUBLICATION.md](PUBLICATION.md) nennt die passenden PRs und
-die noch unveröffentlichten Storage-Build-Anpassungen, die Zein prüfen muss.
+**Vor dem Start:** Die Demo benötigt noch unveröffentlichte
+Storage-Build-Anpassungen, die Zein prüfen muss. Siehe [DEMO.md](DEMO.md).
 Ein unverändertes GitHub-main-Checkout reicht für die neue Demo noch nicht.
 
 [DEMO.md](DEMO.md) enthält Einrichtung, zwei Benutzer, Verlauf nach Refresh,

@@ -4,9 +4,8 @@
 
 This is an opt-in demo, separate from the team's default `docker-compose.yaml`.
 `Start-Demo.ps1` explicitly selects `docker-compose.integration.yaml`.
-The tested local integration started from the commits in [BASELINE.md](BASELINE.md).
-Its historical verification is in [TEST-RESULTS.md](TEST-RESULTS.md); publication
-dependencies and limits are in [PUBLICATION.md](PUBLICATION.md).
+Current publication dependencies and verification limits are described in the
+[Docker pull request](https://github.com/EVA-ECS/Docker/pull/28).
 
 **Do not assume all needed code is merged or published.** In particular, the
 source-build Storage Dockerfile/project-reference adjustments are still local
@@ -175,7 +174,7 @@ It never purges queues or resets a database. Do not run it during someone else's
 It is skipped unless explicitly enabled and the environment's project hostname matches your confirmation.
 Do not enable traces/videos: login responses contain tokens. Screenshots are local ignored test artifacts.
 
-See [TEST-RESULTS.md](TEST-RESULTS.md) for the actual results and limitations.
+See the [Docker pull request](https://github.com/EVA-ECS/Docker/pull/28) for verification results and limitations.
 
 ## Stop / rollback
 
