@@ -65,8 +65,8 @@ services:
 
   chat-gateway:
     build:
-      context: ../Gateway
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: Gateway/Dockerfile
       args:
         - GITHUB_USER=${GITHUB_USER}
         - GITHUB_TOKEN=${GITHUB_TOKEN}
@@ -78,6 +78,8 @@ services:
       - RabbitMQ__Host=rabbitmq
       - Redis__ConnectionString=redis:6379
       - Supabase__Url=${SUPABASE_URL}
+      - Supabase__PublishableKey=${SUPABASE_PUBLISHABLE_KEY}
+      - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
       - ASPNETCORE_ENVIRONMENT=Development
       - RABBITMQ_HOST=rabbitmq
       - REDIS_HOST=redis
@@ -136,7 +138,7 @@ services:
       context: ../Frontend/chat-app
       dockerfile: Dockerfile
       args:
-        EXPO_PUBLIC_GATEWAY_URL: http://localhost
+        EXPO_PUBLIC_GATEWAY_URL: http://localhost:8082
     container_name: frontend
     restart: unless-stopped
     ports:
@@ -160,36 +162,47 @@ services:
       retries: 3
       start_period: 10s
 
-  # No Traefik Routing, only internal communication with RabbitMQ. These are background workers that process messages from RabbitMQ.
-  #storage-worker:
-  # build:
-  #  context: ../Storage-Service
-  # dockerfile: Dockerfile
-  #container_name: storage-worker
-  #restart: unless-stopped
-  #environment:
-  # - DOTNET_ENVIRONMENT=Development
-  # - RABBITMQ_HOST=rabbitmq
-  #networks:
-  # - data-net # Talks to RabbitMQ
-  #depends_on:
-  # rabbitmq:
-  #  condition: service_healthy
 
-  #delivery-worker:
-  # build:
-  #  context: ../Delivery-Service
-  # dockerfile: Dockerfile
-  #container_name: delivery-worker
-  #restart: unless-stopped
-  #environment:
-  # - DOTNET_ENVIRONMENT=Development
-  # - RABBITMQ_HOST=rabbitmq
-  #networks:
-  # - data-net # Talks to RabbitMQ
-  #depends_on:
-  # rabbitmq:
-  #  condition: service_healthy
+  storage-worker:
+    build:
+      context: ../Storage-Service
+      dockerfile: Dockerfile
+      args:
+        GITHUB_USER: ${GITHUB_USER}
+        GITHUB_TOKEN: ${GITHUB_TOKEN}
+    container_name: storage-worker
+    restart: unless-stopped
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - RABBITMQ_HOST=rabbitmq
+      - Supabase__Url=${SUPABASE_URL}
+      - Supabase__PublishableKey=${SUPABASE_PUBLISHABLE_KEY}
+      - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
+    networks:
+      - data-net
+      - public-net
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  delivery-worker:
+    build:
+      context: ..
+      dockerfile: Delivery-Service/Dockerfile
+    container_name: delivery-worker
+    restart: unless-stopped
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - RABBITMQ_HOST=rabbitmq
+      - Supabase__Url=${SUPABASE_URL}
+      - Supabase__PublishableKey=${SUPABASE_PUBLISHABLE_KEY}
+      - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
+    networks:
+      - data-net
+      - public-net
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
 networks:
   public-net:
