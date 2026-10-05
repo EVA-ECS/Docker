@@ -11,6 +11,7 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--ping=true"
+      - "--accesslog=true"
     ports:
       - "80:80" # API Requests
       - "8080:8080" # Dashboard
@@ -135,7 +136,7 @@ services:
       context: ../Frontend/chat-app
       dockerfile: Dockerfile
       args:
-        EXPO_PUBLIC_GATEWAY_URL: http://localhost:8082
+        EXPO_PUBLIC_GATEWAY_URL: http://localhost
     container_name: frontend
     restart: unless-stopped
     ports:
