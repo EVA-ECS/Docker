@@ -43,7 +43,6 @@ services:
 
   rabbitmq:
     image: rabbitmq:management-alpine
-    container_name: rabbitmq
     restart: always
     environment:
       RABBITMQ_DEFAULT_USER: ${RMQ_USER:-admin}
@@ -110,7 +109,6 @@ services:
     build:
       context: ../UserService
       dockerfile: Dockerfile
-    container_name: user-service
     restart: unless-stopped
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
@@ -168,7 +166,6 @@ services:
       args:
         GITHUB_USER: ${GITHUB_USER}
         GITHUB_TOKEN: ${GITHUB_TOKEN}
-    container_name: storage-worker
     restart: unless-stopped
     environment:
       - DOTNET_ENVIRONMENT=Development
@@ -187,7 +184,6 @@ services:
     build:
       context: ..
       dockerfile: Delivery-Service/Dockerfile
-    container_name: delivery-worker
     restart: unless-stopped
     environment:
       - DOTNET_ENVIRONMENT=Development
