@@ -72,14 +72,14 @@ services:
         - GITHUB_TOKEN=${GITHUB_TOKEN}
     restart: unless-stopped
     environment:
-      - RabbitMQ__Host=rabbitmq
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=${RMQ_USER:-admin}
+      - RabbitMq__Password=${RMQ_PASS:-secret}
       - Redis__ConnectionString=redis:6379
       - Supabase__Url=${SUPABASE_URL}
       - Supabase__PublishableKey=${SUPABASE_PUBLISHABLE_KEY}
       - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
-      - ASPNETCORE_ENVIRONMENT=Development
-      - RABBITMQ_HOST=rabbitmq
-      - REDIS_HOST=redis
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=docker_public-net"
@@ -158,7 +158,6 @@ services:
       retries: 3
       start_period: 10s
 
-
   storage-worker:
     build:
       context: ../Storage-Service
@@ -169,7 +168,9 @@ services:
     restart: unless-stopped
     environment:
       - DOTNET_ENVIRONMENT=Development
-      - RABBITMQ_HOST=rabbitmq
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=${RMQ_USER:-admin}
+      - RabbitMq__Password=${RMQ_PASS:-secret}
       - Supabase__Url=${SUPABASE_URL}
       - Supabase__PublishableKey=${SUPABASE_PUBLISHABLE_KEY}
       - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
@@ -187,7 +188,11 @@ services:
     restart: unless-stopped
     environment:
       - DOTNET_ENVIRONMENT=Development
-      - RABBITMQ_HOST=rabbitmq
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=${RMQ_USER:-admin}
+      - RabbitMq__Password=${RMQ_PASS:-secret}
+      - RabbitMq__VirtualHost=/
+      - Redis__ConnectionString=redis:6379
       - Supabase__Url=${SUPABASE_URL}
       - Supabase__PublishableKey=${SUPABASE_PUBLISHABLE_KEY}
       - Supabase__SecretKey=${SUPABASE_SECRET_KEY}
